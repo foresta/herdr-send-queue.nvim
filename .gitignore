@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+
+# Editor / Vim
+*.swp
+*.swo
+tags
+doc/tags
+
+# Lua
+*.luac
+luac.out
+
+# 環境・ローカル
+.env
+.direnv/
+.luarc.json
+
+# テスト/依存の生成物
+/deps/
+.tests/
