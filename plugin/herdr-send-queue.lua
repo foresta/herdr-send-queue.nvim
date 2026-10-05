@@ -23,3 +23,13 @@ end, { desc = "queue 一覧を開く" })
 vim.api.nvim_create_user_command("HerdrSendQueueFlush", function()
   require("herdr-send-queue").flush()
 end, { desc = "queue を一括送信する" })
+
+-- 一覧パネル（右 split）をトグル。
+vim.api.nvim_create_user_command("HerdrSendQueuePanel", function()
+  require("herdr-send-queue").panel()
+end, { desc = "queue 一覧パネルをトグルする" })
+
+-- 行インライン注釈をトグル。
+vim.api.nvim_create_user_command("HerdrSendQueueAnnotate", function()
+  require("herdr-send-queue").annotate()
+end, { desc = "コメントの行インライン注釈をトグルする" })
