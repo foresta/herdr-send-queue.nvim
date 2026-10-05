@@ -6,8 +6,23 @@ M.defaults = {
   set_keymaps = true,
   keymaps = {
     comment = "<leader>ac", -- 現在行/選択 + メモを queue へ
-    list = "<leader>al", -- queue 一覧
+    list = "<leader>al", -- queue 一覧（view.list の表示先）
     flush = "<leader>aS", -- 一括送信して clear
+    panel = "<leader>ap", -- 一覧パネルのトグル
+    annotate = "<leader>at", -- 行インライン注釈のトグル
+  },
+  view = {
+    -- list キーマップ/コマンドの表示先。"float"=中央 floating、"panel"=右 split
+    list = "float",
+    -- setup() 時に行インライン注釈を自動で ON にするか
+    annotate = true,
+  },
+  annotate = {
+    sign_text = "▌", -- signcolumn のマーカ（最大 2 セル）
+    icon = " 💬 ", -- 行末バッジの先頭アイコン
+    line_highlight = true, -- 該当行の背景を強調するか
+    -- ハイライトは HerdrSendQueue{Sign,Icon,Text,Line} を default リンクで定義。
+    -- 色を変えたいときは setup 後に vim.api.nvim_set_hl で上書きする。
   },
   herdr = {
     cmd = "herdr", -- 実行バイナリ名（PATH 上）

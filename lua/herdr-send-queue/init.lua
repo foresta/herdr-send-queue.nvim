@@ -7,6 +7,8 @@ local format = require("herdr-send-queue.review.format")
 local target = require("herdr-send-queue.core.target")
 local herdr = require("herdr-send-queue.core.herdr")
 local float = require("herdr-send-queue.view.float")
+local panel = require("herdr-send-queue.view.panel")
+local annotate = require("herdr-send-queue.view.annotate")
 
 local M = {}
 
@@ -15,9 +17,23 @@ function M.comment(line1, line2)
   comments.add_comment(line1, line2)
 end
 
--- queue 一覧を開く。
+-- queue 一覧を開く（config.view.list で float/panel 切替）。
 function M.list()
-  float.open()
+  if config.get().view.list == "panel" then
+    panel.open()
+  else
+    float.open()
+  end
+end
+
+-- 一覧パネル（右 split）をトグルする。
+function M.panel()
+  panel.toggle()
+end
+
+-- 行インライン注釈をトグルする。
+function M.annotate()
+  annotate.toggle()
 end
 
 -- queue を 1 プロンプトに束ねて送信先 agent へ一括送信し、成功で clear する。
@@ -72,14 +88,24 @@ local function set_keymaps(km)
   if km.flush then
     vim.keymap.set("n", km.flush, M.flush, { silent = true, desc = "herdr-send-queue: 一括送信" })
   end
+  if km.panel then
+    vim.keymap.set("n", km.panel, M.panel, { silent = true, desc = "herdr-send-queue: 一覧パネル" })
+  end
+  if km.annotate then
+    vim.keymap.set("n", km.annotate, M.annotate, { silent = true, desc = "herdr-send-queue: 行注釈トグル" })
+  end
 end
 
 -- プラグインを有効化する。
 function M.setup(opts)
   local cfg = config.setup(opts)
   float.setup_autocmd()
+  panel.setup_autocmd()
   if cfg.set_keymaps then
     set_keymaps(cfg.keymaps)
+  end
+  if cfg.view.annotate then
+    annotate.enable() -- 行インライン注釈を既定で ON（view.annotate=false で無効化）
   end
   return M
 end
