@@ -1,6 +1,8 @@
 -- レビューコメント preset。現在行/選択を location 化し、メモとともに queue へ積む。
 local queue = require("herdr-send-queue.queue")
 local target = require("herdr-send-queue.core.target")
+local config = require("herdr-send-queue.config")
+local input = require("herdr-send-queue.view.input")
 
 local M = {}
 
@@ -85,17 +87,32 @@ function M.add_comment(line1, line2)
     label = label .. "-" .. tostring(line2)
   end
 
-  vim.ui.input({ prompt = "レビューコメント (" .. label .. "): " }, function(input)
-    if input == nil or vim.trim(input) == "" then
-      return -- キャンセル・空は積まない
-    end
+  -- queue へ積む共通処理（入力方式に依らない）。
+  local function commit(text)
     queue.add({
-      text = vim.trim(input),
+      text = text,
       location = location,
       meta = { kind = "review" },
     })
     vim.notify("[herdr-send-queue] queue に追加: " .. label, vim.log.levels.INFO)
-  end)
+  end
+
+  if config.get().review.input == "float" then
+    -- 対象コードを現在バッファから取得して入力欄の上に表示する
+    local code = vim.api.nvim_buf_get_lines(0, line1 - 1, line2, false)
+    input.open({
+      title = "コメント",
+      context = { title = label, lines = code, filetype = vim.bo[0].filetype },
+      on_submit = commit,
+    })
+  else
+    vim.ui.input({ prompt = "レビューコメント (" .. label .. "): " }, function(text)
+      if text == nil or vim.trim(text) == "" then
+        return -- キャンセル・空は積まない
+      end
+      commit(vim.trim(text))
+    end)
+  end
 end
 
 return M

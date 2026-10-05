@@ -61,12 +61,9 @@ local function set_keymaps(km)
       M.comment()
     end, { silent = true, desc = "herdr-send-queue: 現在行をコメント" })
     vim.keymap.set("x", km.comment, function()
-      -- ビジュアル選択の行範囲を取得してからコメント
-      local line1 = vim.fn.line("v")
-      local line2 = vim.fn.line(".")
-      -- ビジュアルモードを抜けてから入力プロンプトを出す
+      -- 先に visual を抜けて '<,'> マークを確定させる（v/V/<C-v> いずれの選択でも範囲が取れる）
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
-      M.comment(line1, line2)
+      M.comment(vim.fn.line("'<"), vim.fn.line("'>"))
     end, { silent = true, desc = "herdr-send-queue: 選択をコメント" })
   end
   if km.list then

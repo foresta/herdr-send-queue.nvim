@@ -17,6 +17,10 @@ M.defaults = {
     -- 一致が cwd と foreground_cwd のどちらでも良いか
     match_foreground_cwd = true,
   },
+  review = {
+    -- コメント入力の方式。"float"=複数行フローティング入力、"prompt"=1行の vim.ui.input。
+    input = "float",
+  },
   format = {
     -- ファイル参照形式を決める agent 種別。"claude" は @relpath#L.. 、"plain" は relpath:lnum。
     agent_type = "claude",
