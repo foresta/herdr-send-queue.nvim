@@ -39,9 +39,21 @@ local function build_location(line1, line2)
   if path == nil or path == "" then
     return nil, "名前付きファイルのバッファではありません"
   end
-  -- fugitive:// 等の疑似バッファは MVP 対象外（パス解決は KAZ-32）。
+  -- 疑似バッファ（fugitive:// 等）は実パスへ解決する。
+  -- fugitive の diff/blob バッファは FugitiveReal() で作業ツリーの実ファイルパスが取れる。
+  -- 行番号は現在行をそのまま使う（diff 右側＝作業ツリーならそのまま対応する）。
   if path:match("^%w+://") then
-    return nil, "このバッファ種別（" .. path:match("^(%w+)://") .. "://）は MVP 非対応です"
+    local scheme = path:match("^(%w+)://")
+    if path:match("^fugitive://") and vim.fn.exists("*FugitiveReal") == 1 then
+      local real = vim.fn.FugitiveReal(path)
+      if real and real ~= "" and not real:match("^%w+://") then
+        path = real
+      else
+        return nil, "fugitive バッファの実パスを解決できませんでした（status 行など）"
+      end
+    else
+      return nil, "このバッファ種別（" .. scheme .. "://）は未対応です"
+    end
   end
 
   local dir = vim.fn.fnamemodify(path, ":h")
