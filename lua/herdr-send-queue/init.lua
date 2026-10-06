@@ -11,6 +11,7 @@ local panel = require("herdr-send-queue.view.panel")
 local annotate = require("herdr-send-queue.view.annotate")
 local persist = require("herdr-send-queue.persist")
 local send = require("herdr-send-queue.send")
+local read = require("herdr-send-queue.read")
 
 local M = {}
 
@@ -48,6 +49,12 @@ function M.send_text(line1, line2, opts)
     line1, line2 = line2, line1
   end
   send.send_lines(line1, line2, opts)
+end
+
+-- 返答取り込み: 送信先 agent/pane の画面テキストを read-only float で表示。
+-- opts.force_pick=true で全 pane から選ぶ。
+function M.read_response(opts)
+  read.read_response(opts)
 end
 
 -- queue を 1 プロンプトに束ねて送信先へ一括送信し、成功で clear する。
