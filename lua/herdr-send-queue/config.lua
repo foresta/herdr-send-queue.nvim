@@ -57,6 +57,12 @@ M.defaults = {
     -- nil なら stdpath("state")/herdr-send-queue/queue.json
     path = nil,
   },
+  read = {
+    -- 返答取り込み（:HerdrRead）の agent read ソース: visible / recent / recent-unwrapped / detection
+    source = "recent",
+    -- 読み取る行数（nil なら herdr 既定）
+    lines = nil,
+  },
 }
 
 local options = nil

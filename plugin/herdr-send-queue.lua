@@ -44,3 +44,8 @@ vim.api.nvim_create_user_command("HerdrSendText", function(opts)
   end
   hsq.send_text(l1, l2, { force_pick = opts.bang })
 end, { range = true, bang = true, desc = "選択/現在行を任意 pane へ送る" })
+
+-- 返答取り込み: 送信先の画面テキストを読んで表示。! で全 pane から選ぶ（既定は cwd 一致 agent）。
+vim.api.nvim_create_user_command("HerdrRead", function(opts)
+  require("herdr-send-queue").read_response({ force_pick = opts.bang })
+end, { bang = true, desc = "送信先 agent の返答（画面テキスト）を読み取って表示する" })
