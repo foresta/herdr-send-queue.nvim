@@ -44,6 +44,12 @@ M.defaults = {
   send = {
     submit = true, -- flush 時に Enter まで送るか（false なら未送信ステージ）
   },
+  persist = {
+    -- queue をセッション跨ぎで保存/復元するか（既定 OFF）
+    enabled = false,
+    -- nil なら stdpath("state")/herdr-send-queue/queue.json
+    path = nil,
+  },
 }
 
 local options = nil

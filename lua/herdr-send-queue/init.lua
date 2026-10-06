@@ -9,6 +9,7 @@ local herdr = require("herdr-send-queue.core.herdr")
 local float = require("herdr-send-queue.view.float")
 local panel = require("herdr-send-queue.view.panel")
 local annotate = require("herdr-send-queue.view.annotate")
+local persist = require("herdr-send-queue.persist")
 
 local M = {}
 
@@ -101,6 +102,7 @@ function M.setup(opts)
   local cfg = config.setup(opts)
   float.setup_autocmd()
   panel.setup_autocmd()
+  persist.setup(cfg.persist) -- enabled=true のときだけ load + 自動 save
   if cfg.set_keymaps then
     set_keymaps(cfg.keymaps)
   end
