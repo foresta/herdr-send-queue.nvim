@@ -19,10 +19,10 @@ vim.api.nvim_create_user_command("HerdrSendQueueList", function()
   require("herdr-send-queue").list()
 end, { desc = "queue 一覧を開く" })
 
--- 一括送信して clear。
-vim.api.nvim_create_user_command("HerdrSendQueueFlush", function()
-  require("herdr-send-queue").flush()
-end, { desc = "queue を一括送信する" })
+-- 一括送信して clear。! を付けると送信先を全 pane から選び直す（既定は cwd 一致 agent）。
+vim.api.nvim_create_user_command("HerdrSendQueueFlush", function(opts)
+  require("herdr-send-queue").flush({ force_pick = opts.bang })
+end, { bang = true, desc = "queue を一括送信する（! で送信先を選択）" })
 
 -- 一覧パネル（右 split）をトグル。
 vim.api.nvim_create_user_command("HerdrSendQueuePanel", function()

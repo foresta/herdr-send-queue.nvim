@@ -50,9 +50,12 @@ function M.send_text(line1, line2, opts)
   send.send_lines(line1, line2, opts)
 end
 
--- queue を 1 プロンプトに束ねて送信先 agent へ一括送信し、成功で clear する。
--- 流れ: target.resolve(cwd) → format → send({submit}) → queue.clear()。
-function M.flush()
+-- queue を 1 プロンプトに束ねて送信先へ一括送信し、成功で clear する。
+-- 既定は cwd 一致 agent へ自動解決。opts.force_pick=true で全 pane から選び直す。
+-- 流れ: 解決 → format → send({submit}) → queue.clear()。
+---@param opts? { force_pick?: boolean }
+function M.flush(opts)
+  opts = opts or {}
   local items = queue.list()
   if #items == 0 then
     vim.notify("[herdr-send-queue] queue が空です", vim.log.levels.INFO)
@@ -62,13 +65,7 @@ function M.flush()
   local text = format.format(items)
   local submit = config.get().send.submit
 
-  -- 送信先は現在バッファの git root から解決する（曖昧なら picker）。
-  local buf_path = vim.api.nvim_buf_get_name(0)
-  local dir = (buf_path ~= nil and buf_path ~= "" and not buf_path:match("^%w+://"))
-      and vim.fn.fnamemodify(buf_path, ":h")
-    or nil
-
-  target.resolve({ dir = dir }, function(pane_id, err)
+  local function do_send(pane_id, err)
     if not pane_id then
       vim.notify("[herdr-send-queue] 送信先を解決できません: " .. (err or "不明"), vim.log.levels.ERROR)
       return
@@ -81,7 +78,19 @@ function M.flush()
     end
     queue.clear()
     vim.notify(string.format("[herdr-send-queue] %d 件を %s へ送信しました", #items, pane_id), vim.log.levels.INFO)
-  end)
+  end
+
+  if opts.force_pick then
+    -- 全 pane から明示選択（send preset と共通の picker）
+    target.pick_pane(do_send)
+  else
+    -- 現在バッファの git root から cwd 一致 agent を自動解決（曖昧なら picker）
+    local buf_path = vim.api.nvim_buf_get_name(0)
+    local dir = (buf_path ~= nil and buf_path ~= "" and not buf_path:match("^%w+://"))
+        and vim.fn.fnamemodify(buf_path, ":h")
+      or nil
+    target.resolve({ dir = dir }, do_send)
+  end
 end
 
 -- keymap を配線する。

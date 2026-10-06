@@ -2,37 +2,13 @@
 -- 汎用コア（core/herdr）をそのまま流用し、レビュー用の format/location には依存しない。
 -- 送信先は herdr pane list から picker で選び、セッション内で記憶して再送を楽にする。
 local herdr = require("herdr-send-queue.core.herdr")
+local target = require("herdr-send-queue.core.target")
 local config = require("herdr-send-queue.config")
 
 local M = {}
 
 -- セッション内で記憶する直近の送信先 pane_id
 local last_target = nil
-
--- picker 表示用のラベル。
-local function label(p)
-  local title = p.terminal_title_stripped or p.terminal_title or ""
-  local agent = p.agent and ("[" .. p.agent .. "] ") or ""
-  return string.format("%s  %s%s  %s", p.pane_id or "?", agent, title, p.cwd or "")
-end
-
--- pane を選ばせる（vim.ui.select は非同期）。
----@param cb fun(pane_id: string|nil, err: string|nil)
-local function pick(cb)
-  local panes, err = herdr.list_panes()
-  if not panes then
-    return cb(nil, err)
-  end
-  if #panes == 0 then
-    return cb(nil, "pane が見つかりません")
-  end
-  vim.ui.select(panes, { prompt = "送信先 pane を選択", format_item = label }, function(choice)
-    if not choice then
-      return cb(nil, "送信先の選択がキャンセルされました")
-    end
-    cb(choice.pane_id, nil)
-  end)
-end
 
 -- 送信先を解決する。
 -- remember_target=true かつ force_pick=false で記憶があればそれを再利用、
@@ -44,7 +20,7 @@ local function resolve(force_pick, cb)
   if remember and not force_pick and last_target then
     return cb(last_target, nil)
   end
-  pick(function(pid, err)
+  target.pick_pane(function(pid, err)
     if pid then
       last_target = pid
     end
