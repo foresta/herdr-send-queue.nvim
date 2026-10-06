@@ -10,6 +10,7 @@ local float = require("herdr-send-queue.view.float")
 local panel = require("herdr-send-queue.view.panel")
 local annotate = require("herdr-send-queue.view.annotate")
 local persist = require("herdr-send-queue.persist")
+local send = require("herdr-send-queue.send")
 
 local M = {}
 
@@ -35,6 +36,18 @@ end
 -- 行インライン注釈をトグルする。
 function M.annotate()
   annotate.toggle()
+end
+
+-- 汎用 send: 現在行/選択を任意 pane（shell/REPL 等）へ送る。
+-- line1/line2 省略時は現在行。opts.force_pick=true で送信先を選び直す。
+function M.send_text(line1, line2, opts)
+  local cur = vim.api.nvim_win_get_cursor(0)[1]
+  line1 = line1 or cur
+  line2 = line2 or line1
+  if line2 < line1 then
+    line1, line2 = line2, line1
+  end
+  send.send_lines(line1, line2, opts)
 end
 
 -- queue を 1 プロンプトに束ねて送信先 agent へ一括送信し、成功で clear する。
@@ -94,6 +107,15 @@ local function set_keymaps(km)
   end
   if km.annotate then
     vim.keymap.set("n", km.annotate, M.annotate, { silent = true, desc = "herdr-send-queue: 行注釈トグル" })
+  end
+  if km.send_text then
+    vim.keymap.set("n", km.send_text, function()
+      M.send_text()
+    end, { silent = true, desc = "herdr-send-queue: 現在行を pane へ送信" })
+    vim.keymap.set("x", km.send_text, function()
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+      M.send_text(vim.fn.line("'<"), vim.fn.line("'>"))
+    end, { silent = true, desc = "herdr-send-queue: 選択を pane へ送信" })
   end
 end
 

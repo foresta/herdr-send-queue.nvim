@@ -33,3 +33,14 @@ end, { desc = "queue 一覧パネルをトグルする" })
 vim.api.nvim_create_user_command("HerdrSendQueueAnnotate", function()
   require("herdr-send-queue").annotate()
 end, { desc = "コメントの行インライン注釈をトグルする" })
+
+-- 汎用 send: 現在行/選択を任意 pane（shell/REPL 等）へ送る。
+-- ! を付けると送信先を選び直す（既定はセッション内で記憶した先へ再送）。
+vim.api.nvim_create_user_command("HerdrSendText", function(opts)
+  local hsq = require("herdr-send-queue")
+  local l1, l2 = nil, nil
+  if opts.range > 0 then
+    l1, l2 = opts.line1, opts.line2
+  end
+  hsq.send_text(l1, l2, { force_pick = opts.bang })
+end, { range = true, bang = true, desc = "選択/現在行を任意 pane へ送る" })
