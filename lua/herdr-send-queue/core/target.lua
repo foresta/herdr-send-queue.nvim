@@ -91,4 +91,29 @@ function M.resolve(opts, cb)
   return pick(matched, cb)
 end
 
+-- 全 pane から送信先を選ぶ共通 picker（flush の明示選択 / send preset で共有）。
+-- フローによる出し分けはせず、常に同じ全 pane 一覧を出す。
+local function pane_label(p)
+  local title = p.terminal_title_stripped or p.terminal_title or ""
+  local agent = p.agent and ("[" .. p.agent .. "] ") or ""
+  return string.format("%s  %s%s  %s", p.pane_id or "?", agent, title, p.cwd or "")
+end
+
+---@param cb fun(pane_id: string|nil, err: string|nil)
+function M.pick_pane(cb)
+  local panes, err = herdr.list_panes()
+  if not panes then
+    return cb(nil, err)
+  end
+  if #panes == 0 then
+    return cb(nil, "pane が見つかりません")
+  end
+  vim.ui.select(panes, { prompt = "送信先 pane を選択", format_item = pane_label }, function(choice)
+    if not choice then
+      return cb(nil, "送信先の選択がキャンセルされました")
+    end
+    cb(choice.pane_id, nil)
+  end)
+end
+
 return M

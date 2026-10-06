@@ -73,6 +73,25 @@ function M.list_agents()
   return agents, nil
 end
 
+-- `herdr pane list` を parse して pane 配列を返す。
+-- 各要素は pane_id / cwd / foreground_cwd / terminal_title(_stripped) / tab_id / workspace_id、
+-- agent を抱える pane には agent / agent_status も付く（agent 無し＝素の shell/REPL 等）。
+function M.list_panes()
+  local out, err = run({ "pane", "list" })
+  if err then
+    return nil, err
+  end
+  local ok, parsed = pcall(vim.json.decode, out)
+  if not ok then
+    return nil, "herdr pane list の JSON 解析に失敗しました: " .. tostring(parsed)
+  end
+  local panes = parsed and parsed.result and parsed.result.panes
+  if type(panes) ~= "table" then
+    return nil, "herdr pane list の構造が想定と異なります（result.panes が無い）"
+  end
+  return panes, nil
+end
+
 -- agent の画面テキストを読む（MVP では flush から駆動しない。返答取り込みは KAZ-31）。
 function M.read(target, opts)
   opts = opts or {}

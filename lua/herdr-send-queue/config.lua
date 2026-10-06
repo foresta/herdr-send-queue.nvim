@@ -44,6 +44,13 @@ M.defaults = {
   send = {
     submit = true, -- flush 時に Enter まで送るか（false なら未送信ステージ）
   },
+  send_text = {
+    -- 汎用 send preset（:HerdrSendText）で Enter まで送るか。REPL は実行したいので既定 true。
+    submit = true,
+    -- 送信先を記憶して再送するか。既定 false＝毎回 picker を出す（誤爆防止）。
+    -- true にするとセッション内で記憶し、:HerdrSendText! で選び直す運用になる。
+    remember_target = false,
+  },
   persist = {
     -- queue をセッション跨ぎで保存/復元するか（既定 OFF）
     enabled = false,

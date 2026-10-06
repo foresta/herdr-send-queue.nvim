@@ -10,6 +10,7 @@ local float = require("herdr-send-queue.view.float")
 local panel = require("herdr-send-queue.view.panel")
 local annotate = require("herdr-send-queue.view.annotate")
 local persist = require("herdr-send-queue.persist")
+local send = require("herdr-send-queue.send")
 
 local M = {}
 
@@ -37,9 +38,24 @@ function M.annotate()
   annotate.toggle()
 end
 
--- queue を 1 プロンプトに束ねて送信先 agent へ一括送信し、成功で clear する。
--- 流れ: target.resolve(cwd) → format → send({submit}) → queue.clear()。
-function M.flush()
+-- 汎用 send: 現在行/選択を任意 pane（shell/REPL 等）へ送る。
+-- line1/line2 省略時は現在行。opts.force_pick=true で送信先を選び直す。
+function M.send_text(line1, line2, opts)
+  local cur = vim.api.nvim_win_get_cursor(0)[1]
+  line1 = line1 or cur
+  line2 = line2 or line1
+  if line2 < line1 then
+    line1, line2 = line2, line1
+  end
+  send.send_lines(line1, line2, opts)
+end
+
+-- queue を 1 プロンプトに束ねて送信先へ一括送信し、成功で clear する。
+-- 既定は cwd 一致 agent へ自動解決。opts.force_pick=true で全 pane から選び直す。
+-- 流れ: 解決 → format → send({submit}) → queue.clear()。
+---@param opts? { force_pick?: boolean }
+function M.flush(opts)
+  opts = opts or {}
   local items = queue.list()
   if #items == 0 then
     vim.notify("[herdr-send-queue] queue が空です", vim.log.levels.INFO)
@@ -49,13 +65,7 @@ function M.flush()
   local text = format.format(items)
   local submit = config.get().send.submit
 
-  -- 送信先は現在バッファの git root から解決する（曖昧なら picker）。
-  local buf_path = vim.api.nvim_buf_get_name(0)
-  local dir = (buf_path ~= nil and buf_path ~= "" and not buf_path:match("^%w+://"))
-      and vim.fn.fnamemodify(buf_path, ":h")
-    or nil
-
-  target.resolve({ dir = dir }, function(pane_id, err)
+  local function do_send(pane_id, err)
     if not pane_id then
       vim.notify("[herdr-send-queue] 送信先を解決できません: " .. (err or "不明"), vim.log.levels.ERROR)
       return
@@ -68,7 +78,19 @@ function M.flush()
     end
     queue.clear()
     vim.notify(string.format("[herdr-send-queue] %d 件を %s へ送信しました", #items, pane_id), vim.log.levels.INFO)
-  end)
+  end
+
+  if opts.force_pick then
+    -- 全 pane から明示選択（send preset と共通の picker）
+    target.pick_pane(do_send)
+  else
+    -- 現在バッファの git root から cwd 一致 agent を自動解決（曖昧なら picker）
+    local buf_path = vim.api.nvim_buf_get_name(0)
+    local dir = (buf_path ~= nil and buf_path ~= "" and not buf_path:match("^%w+://"))
+        and vim.fn.fnamemodify(buf_path, ":h")
+      or nil
+    target.resolve({ dir = dir }, do_send)
+  end
 end
 
 -- keymap を配線する。
@@ -94,6 +116,15 @@ local function set_keymaps(km)
   end
   if km.annotate then
     vim.keymap.set("n", km.annotate, M.annotate, { silent = true, desc = "herdr-send-queue: 行注釈トグル" })
+  end
+  if km.send_text then
+    vim.keymap.set("n", km.send_text, function()
+      M.send_text()
+    end, { silent = true, desc = "herdr-send-queue: 現在行を pane へ送信" })
+    vim.keymap.set("x", km.send_text, function()
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+      M.send_text(vim.fn.line("'<"), vim.fn.line("'>"))
+    end, { silent = true, desc = "herdr-send-queue: 選択を pane へ送信" })
   end
 end
 
