@@ -34,11 +34,14 @@ local function pick(cb)
   end)
 end
 
--- 送信先を解決する。force_pick=false かつ記憶があればそれを再利用。
+-- 送信先を解決する。
+-- remember_target=true かつ force_pick=false で記憶があればそれを再利用、
+-- それ以外（remember_target=false / force_pick / 記憶なし）は picker を出す。
 ---@param force_pick boolean
 ---@param cb fun(pane_id: string|nil, err: string|nil)
 local function resolve(force_pick, cb)
-  if not force_pick and last_target then
+  local remember = config.get().send_text.remember_target
+  if remember and not force_pick and last_target then
     return cb(last_target, nil)
   end
   pick(function(pid, err)
