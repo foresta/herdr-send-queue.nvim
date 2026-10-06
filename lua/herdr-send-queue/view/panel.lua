@@ -1,5 +1,5 @@
--- 一覧パネル view。右 split に常駐し、queue をファイルごとにグルーピングして表示する。
--- <CR> で該当ファイル:行へジャンプ、d で削除。queue.list() + 変更通知だけで動く drop-in。
+-- A list panel view. Persists in a right split and shows the queue grouped by file.
+-- <CR> jumps to the file:line, d deletes. A drop-in that runs on just queue.list() + change notifications.
 local queue = require("herdr-send-queue.queue")
 
 local M = {}
@@ -8,15 +8,15 @@ local WIDTH = 42
 local state = {
   win = nil,
   buf = nil,
-  from_win = nil, -- ジャンプ先に使う元 window
-  line_ids = {}, -- 表示行 index → fragment id（ヘッダ行は nil）
+  from_win = nil, -- the originating window used as the jump target
+  line_ids = {}, -- displayed line index -> fragment id (nil for header lines)
 }
 
 local function is_open()
   return state.win ~= nil and vim.api.nvim_win_is_valid(state.win)
 end
 
--- queue をファイルごとにまとめて行テキストへ。line_ids も作る。
+-- Group the queue by file into line text. Also build line_ids.
 local function render()
   if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
     return
@@ -26,12 +26,12 @@ local function render()
   state.line_ids = {}
 
   if #items == 0 then
-    lines = { "（queue は空です）", "", "<CR>: 移動  d: 削除  q: 閉じる" }
+    lines = { "(queue is empty)", "", "<CR>: jump  d: delete  q: close" }
   else
-    -- relpath ごとに順序を保ってグルーピング
+    -- Group by relpath while preserving order
     local order, groups = {}, {}
     for _, f in ipairs(items) do
-      local key = (f.location and f.location.relpath) or "(メモのみ)"
+      local key = (f.location and f.location.relpath) or "(note only)"
       if not groups[key] then
         groups[key] = {}
         table.insert(order, key)
@@ -41,7 +41,7 @@ local function render()
 
     for _, key in ipairs(order) do
       table.insert(lines, string.format("▸ %s (%d)", key, #groups[key]))
-      state.line_ids[#lines] = nil -- ヘッダ
+      state.line_ids[#lines] = nil -- header
       for _, f in ipairs(groups[key]) do
         local loc = f.location
         local pos = ""
@@ -57,7 +57,7 @@ local function render()
       end
     end
     table.insert(lines, "")
-    table.insert(lines, "<CR>: 移動  d: 削除  q: 閉じる")
+    table.insert(lines, "<CR>: jump  d: delete  q: close")
   end
 
   vim.bo[state.buf].modifiable = true
@@ -65,7 +65,7 @@ local function render()
   vim.bo[state.buf].modifiable = false
 end
 
--- ジャンプ先 window を決める（パネル以外の通常 window を優先）。
+-- Decide the jump target window (prefer a normal window other than the panel).
 local function target_win()
   if state.from_win and vim.api.nvim_win_is_valid(state.from_win) and state.from_win ~= state.win then
     return state.from_win
@@ -78,7 +78,7 @@ local function target_win()
   return nil
 end
 
--- カーソル行の fragment を開く。
+-- Open the fragment on the cursor line.
 local function jump()
   local row = vim.api.nvim_win_get_cursor(state.win)[1]
   local id = state.line_ids[row]
@@ -93,7 +93,7 @@ local function jump()
   if tw then
     vim.api.nvim_set_current_win(tw)
   else
-    -- パネルしか無ければ左に split を作る
+    -- If only the panel exists, create a split on the left
     vim.cmd("topleft vsplit")
   end
   vim.cmd("edit " .. vim.fn.fnameescape(f.location.path))
@@ -101,12 +101,12 @@ local function jump()
   vim.api.nvim_win_set_cursor(0, { lnum, 0 })
 end
 
--- カーソル行の fragment を削除。
+-- Delete the fragment on the cursor line.
 local function remove_under_cursor()
   local row = vim.api.nvim_win_get_cursor(state.win)[1]
   local id = state.line_ids[row]
   if id then
-    queue.remove(id) -- 通知経由で render
+    queue.remove(id) -- render via the notification
   end
 end
 
@@ -119,7 +119,7 @@ local function setup_keymaps()
   map("d", remove_under_cursor)
 end
 
--- パネルを開く（既に開いていれば focus）。
+-- Open the panel (focus it if already open).
 function M.open()
   if is_open() then
     vim.api.nvim_set_current_win(state.win)
@@ -129,7 +129,7 @@ function M.open()
 
   if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
     state.buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[state.buf].bufhidden = "hide" -- 閉じてもバッファは残す（トグル用）
+    vim.bo[state.buf].bufhidden = "hide" -- keep the buffer when closed (for toggling)
     vim.bo[state.buf].buftype = "nofile"
     vim.bo[state.buf].swapfile = false
     vim.bo[state.buf].filetype = "herdr-send-queue"
@@ -165,7 +165,7 @@ function M.toggle()
   end
 end
 
--- 変更通知を購読して、開いている間だけ再描画する。setup から 1 回だけ呼ぶ。
+-- Subscribe to change notifications and redraw only while open. Call once from setup.
 function M.setup_autocmd()
   local group = vim.api.nvim_create_augroup("HerdrSendQueuePanel", { clear = true })
   vim.api.nvim_create_autocmd("User", {

@@ -1,5 +1,5 @@
--- MVP の一覧 view。floating window に queue を表示し、User HerdrSendQueueChanged で再描画する。
--- queue.list() を読むだけなので、将来の自作 view（KAZ-28）も同じ契約で差し替えできる。
+-- A simple list view. Shows the queue in a floating window and redraws on User HerdrSendQueueChanged.
+-- It only reads queue.list(), so a future custom view can be swapped in under the same contract.
 local queue = require("herdr-send-queue.queue")
 
 local M = {}
@@ -7,7 +7,7 @@ local M = {}
 local state = {
   win = nil,
   buf = nil,
-  -- 表示中の行 index → fragment id
+  -- displayed line index -> fragment id
   line_ids = {},
 }
 
@@ -15,7 +15,7 @@ local function is_open()
   return state.win ~= nil and vim.api.nvim_win_is_valid(state.win)
 end
 
--- queue を行テキストへ描画し、行→id の対応を作る。
+-- Render the queue into line text and build the line -> id mapping.
 local function render()
   if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
     return
@@ -25,10 +25,10 @@ local function render()
   state.line_ids = {}
 
   if #items == 0 then
-    lines = { "（queue は空です）", "", "d: 削除  q/<Esc>: 閉じる" }
+    lines = { "(queue is empty)", "", "d: delete  q/<Esc>: close" }
   else
     for _, f in ipairs(items) do
-      local label = "(メモのみ)"
+      local label = "(note only)"
       if f.location then
         local loc = f.location
         label = loc.relpath .. ":" .. tostring(loc.lnum)
@@ -36,14 +36,14 @@ local function render()
           label = label .. "-" .. tostring(loc.end_lnum)
         end
       end
-      -- メモは 1 行目だけ要約表示
+      -- Summarize the note by showing only its first line
       local first = (f.text or ""):gsub("\n.*$", "")
       local line = string.format("● %s  — %s", label, first)
       table.insert(lines, line)
       state.line_ids[#lines] = f.id
     end
     table.insert(lines, "")
-    table.insert(lines, "d: 削除  q/<Esc>: 閉じる")
+    table.insert(lines, "d: delete  q/<Esc>: close")
   end
 
   vim.bo[state.buf].modifiable = true
@@ -58,16 +58,16 @@ local function close()
   state.win = nil
 end
 
--- カーソル行の fragment を削除する。
+-- Delete the fragment on the cursor line.
 local function remove_under_cursor()
   local row = vim.api.nvim_win_get_cursor(state.win)[1]
   local id = state.line_ids[row]
   if id then
-    queue.remove(id) -- notify 経由で render が走る
+    queue.remove(id) -- render runs via the notification
   end
 end
 
--- floating window を開く。既に開いていれば再描画のみ。
+-- Open the floating window. If already open, only redraw.
 function M.open()
   if is_open() then
     render()
@@ -102,7 +102,7 @@ function M.open()
   render()
 end
 
--- 変更通知を購読して、開いている間だけ再描画する。setup から 1 回だけ呼ぶ。
+-- Subscribe to change notifications and redraw only while open. Call once from setup.
 function M.setup_autocmd()
   local group = vim.api.nvim_create_augroup("HerdrSendQueueFloat", { clear = true })
   vim.api.nvim_create_autocmd("User", {

@@ -1,7 +1,9 @@
--- 行インライン注釈 view。queue 全体を見て、開いている各バッファに「そのファイル宛ての
--- コメント」だけを sign + 行末テキストで表示する。複数ファイルにまたがっても、ファイルを
--- 開くたび・queue 変更時に該当バッファを描き直すので自然に散る。
--- （先頭行上の virt_lines は描画されない環境があるため、sign + 行末 virt_text を主軸にする）
+-- Inline annotation view. Scans the whole queue and shows, in each open buffer,
+-- only the comments addressed to that file as a sign + end-of-line text. Even
+-- across multiple files it spreads naturally, because each buffer is redrawn
+-- whenever the file is opened and whenever the queue changes.
+-- (virt_lines above the first line are not rendered in some environments, so the
+-- sign + end-of-line virt_text is the primary mechanism.)
 local queue = require("herdr-send-queue.queue")
 local config = require("herdr-send-queue.config")
 
@@ -11,19 +13,19 @@ local ns = vim.api.nvim_create_namespace("herdr-send-queue-annotate")
 local GROUP = "HerdrSendQueueAnnotate"
 local enabled = false
 
--- 目立つ既定ハイライトを default リンクで定義する（ユーザー/テーマが上書き可能）。
--- テーマ変更に追従するため ColorScheme でも貼り直す。
+-- Define prominent default highlights via `default` links (user/theme can override).
+-- Re-apply on ColorScheme so they follow theme changes.
 local function set_highlights()
   local function hl(name, link)
     vim.api.nvim_set_hl(0, name, { link = link, default = true })
   end
-  hl("HerdrSendQueueSign", "DiagnosticWarn") -- signcolumn マーカ（色付き）
-  hl("HerdrSendQueueIcon", "DiagnosticVirtualTextWarn") -- 行末バッジのアイコン
-  hl("HerdrSendQueueText", "DiagnosticVirtualTextWarn") -- 行末バッジの本文
-  hl("HerdrSendQueueLine", "Visual") -- 該当行の背景強調
+  hl("HerdrSendQueueSign", "DiagnosticWarn") -- signcolumn marker (colored)
+  hl("HerdrSendQueueIcon", "DiagnosticVirtualTextWarn") -- end-of-line badge icon
+  hl("HerdrSendQueueText", "DiagnosticVirtualTextWarn") -- end-of-line badge text
+  hl("HerdrSendQueueLine", "Visual") -- line highlight for the target line
 end
 
--- 絶対パスへ正規化する。
+-- Normalize to an absolute path.
 local function abspath(name)
   if not name or name == "" then
     return ""
@@ -31,7 +33,7 @@ local function abspath(name)
   return vim.fn.fnamemodify(name, ":p")
 end
 
--- 1 バッファ分の注釈を貼り直す。
+-- Re-apply the annotations for a single buffer.
 ---@param buf integer
 function M.refresh_buffer(buf)
   if not enabled or not vim.api.nvim_buf_is_valid(buf) then
@@ -57,21 +59,21 @@ function M.refresh_buffer(buf)
         vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
           sign_text = acfg.sign_text,
           sign_hl_group = "HerdrSendQueueSign",
-          -- 色付きのバッジ風ラベル（アイコン + 本文を背景付きで）
+          -- Colored badge-style label (icon + text with a background)
           virt_text = {
             { acfg.icon, "HerdrSendQueueIcon" },
             { summary .. " ", "HerdrSendQueueText" },
           },
           virt_text_pos = "eol",
           line_hl_group = acfg.line_highlight and "HerdrSendQueueLine" or nil,
-          -- 範囲コメントは開始行〜終了行に薄いマーカを付けたいが、MVP は開始行のみ
+          -- A range comment should get a faint marker from start line to end line, but for now only the start line
         })
       end
     end
   end
 end
 
--- 読み込み済みの全バッファを描き直す。
+-- Redraw all loaded buffers.
 function M.refresh_all()
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) then
@@ -80,7 +82,7 @@ function M.refresh_all()
   end
 end
 
--- 全バッファの注釈を消す。
+-- Clear the annotations in all buffers.
 local function clear_all()
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(buf) then
@@ -89,7 +91,7 @@ local function clear_all()
   end
 end
 
--- 注釈表示を有効化する。
+-- Enable the annotation display.
 function M.enable()
   if enabled then
     return
@@ -97,19 +99,19 @@ function M.enable()
   enabled = true
   set_highlights()
   local group = vim.api.nvim_create_augroup(GROUP, { clear = true })
-  -- テーマ変更に追従してハイライトを貼り直す
+  -- Re-apply highlights to follow theme changes
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = set_highlights,
   })
-  -- ファイルを開いた/表示したら、そのバッファに注釈を貼る（複数ファイル対応の要）
+  -- When a file is opened/displayed, annotate that buffer (key to multi-file support)
   vim.api.nvim_create_autocmd({ "BufWinEnter", "BufReadPost" }, {
     group = group,
     callback = function(args)
       M.refresh_buffer(args.buf)
     end,
   })
-  -- queue が変わったら全バッファ再描画
+  -- Redraw all buffers when the queue changes
   vim.api.nvim_create_autocmd("User", {
     group = group,
     pattern = "HerdrSendQueueChanged",
@@ -120,7 +122,7 @@ function M.enable()
   M.refresh_all()
 end
 
--- 注釈表示を無効化する。
+-- Disable the annotation display.
 function M.disable()
   if not enabled then
     return

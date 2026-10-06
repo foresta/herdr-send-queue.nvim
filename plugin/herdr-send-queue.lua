@@ -1,10 +1,10 @@
--- :HerdrSendQueue* ユーザーコマンドを定義する。多重ロードを防ぐ。
+-- Define the :HerdrSendQueue* user commands. Guard against double loading.
 if vim.g.loaded_herdr_send_queue then
   return
 end
 vim.g.loaded_herdr_send_queue = true
 
--- 現在行/選択 + メモを queue へ積む（range 対応）。
+-- Add the current line/selection + note to the queue (range supported).
 vim.api.nvim_create_user_command("HerdrSendQueueComment", function(opts)
   local hsq = require("herdr-send-queue")
   if opts.range > 0 then
@@ -12,30 +12,30 @@ vim.api.nvim_create_user_command("HerdrSendQueueComment", function(opts)
   else
     hsq.comment()
   end
-end, { range = true, desc = "レビューコメントを queue に積む" })
+end, { range = true, desc = "Add a review comment to the queue" })
 
--- queue 一覧（floating window）。
+-- Queue list (floating window).
 vim.api.nvim_create_user_command("HerdrSendQueueList", function()
   require("herdr-send-queue").list()
-end, { desc = "queue 一覧を開く" })
+end, { desc = "Open the queue list" })
 
--- 一括送信して clear。! を付けると送信先を全 pane から選び直す（既定は cwd 一致 agent）。
+-- Flush and clear. With ! re-pick the target from all panes (default is the cwd-matching agent).
 vim.api.nvim_create_user_command("HerdrSendQueueFlush", function(opts)
   require("herdr-send-queue").flush({ force_pick = opts.bang })
-end, { bang = true, desc = "queue を一括送信する（! で送信先を選択）" })
+end, { bang = true, desc = "Flush the queue (! to pick the target)" })
 
--- 一覧パネル（右 split）をトグル。
+-- Toggle the list panel (right split).
 vim.api.nvim_create_user_command("HerdrSendQueuePanel", function()
   require("herdr-send-queue").panel()
-end, { desc = "queue 一覧パネルをトグルする" })
+end, { desc = "Toggle the queue list panel" })
 
--- 行インライン注釈をトグル。
+-- Toggle inline line annotations.
 vim.api.nvim_create_user_command("HerdrSendQueueAnnotate", function()
   require("herdr-send-queue").annotate()
-end, { desc = "コメントの行インライン注釈をトグルする" })
+end, { desc = "Toggle inline line annotations for comments" })
 
--- 汎用 send: 現在行/選択を任意 pane（shell/REPL 等）へ送る。
--- ! を付けると送信先を選び直す（既定はセッション内で記憶した先へ再送）。
+-- Generic send: send the current line/selection to any pane (shell/REPL, etc.).
+-- With ! re-pick the target (default is to resend to the one remembered within the session).
 vim.api.nvim_create_user_command("HerdrSendText", function(opts)
   local hsq = require("herdr-send-queue")
   local l1, l2 = nil, nil
@@ -43,9 +43,9 @@ vim.api.nvim_create_user_command("HerdrSendText", function(opts)
     l1, l2 = opts.line1, opts.line2
   end
   hsq.send_text(l1, l2, { force_pick = opts.bang })
-end, { range = true, bang = true, desc = "選択/現在行を任意 pane へ送る" })
+end, { range = true, bang = true, desc = "Send the selection/current line to any pane" })
 
--- 返答取り込み: 送信先の画面テキストを読んで表示。! で全 pane から選ぶ（既定は cwd 一致 agent）。
+-- Response capture: read and show the target's screen text. With ! pick from all panes (default is the cwd-matching agent).
 vim.api.nvim_create_user_command("HerdrRead", function(opts)
   require("herdr-send-queue").read_response({ force_pick = opts.bang })
-end, { bang = true, desc = "送信先 agent の返答（画面テキスト）を読み取って表示する" })
+end, { bang = true, desc = "Read and show the target agent's response (screen text)" })

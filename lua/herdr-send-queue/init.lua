@@ -1,5 +1,5 @@
--- エントリポイント。setup() で config マージ・keymap 配線を行い、
--- comment / list / flush の 3 操作を公開する。
+-- Entry point. setup() merges config and wires keymaps, and exposes the
+-- three operations: comment / list / flush.
 local config = require("herdr-send-queue.config")
 local queue = require("herdr-send-queue.queue")
 local comments = require("herdr-send-queue.review.comments")
@@ -15,12 +15,12 @@ local read = require("herdr-send-queue.read")
 
 local M = {}
 
--- 現在行/選択 + メモを queue へ積む。
+-- Add the current line/selection + note to the queue.
 function M.comment(line1, line2)
   comments.add_comment(line1, line2)
 end
 
--- queue 一覧を開く（config.view.list で float/panel 切替）。
+-- Open the queue list (float/panel switched by config.view.list).
 function M.list()
   if config.get().view.list == "panel" then
     panel.open()
@@ -29,18 +29,18 @@ function M.list()
   end
 end
 
--- 一覧パネル（右 split）をトグルする。
+-- Toggle the list panel (right split).
 function M.panel()
   panel.toggle()
 end
 
--- 行インライン注釈をトグルする。
+-- Toggle inline line annotations.
 function M.annotate()
   annotate.toggle()
 end
 
--- 汎用 send: 現在行/選択を任意 pane（shell/REPL 等）へ送る。
--- line1/line2 省略時は現在行。opts.force_pick=true で送信先を選び直す。
+-- Generic send: send the current line/selection to any pane (shell/REPL, etc.).
+-- When line1/line2 are omitted, uses the current line. opts.force_pick=true re-picks the target.
 function M.send_text(line1, line2, opts)
   local cur = vim.api.nvim_win_get_cursor(0)[1]
   line1 = line1 or cur
@@ -51,21 +51,21 @@ function M.send_text(line1, line2, opts)
   send.send_lines(line1, line2, opts)
 end
 
--- 返答取り込み: 送信先 agent/pane の画面テキストを read-only float で表示。
--- opts.force_pick=true で全 pane から選ぶ。
+-- Response capture: show the screen text of the target agent/pane in a read-only float.
+-- opts.force_pick=true picks from all panes.
 function M.read_response(opts)
   read.read_response(opts)
 end
 
--- queue を 1 プロンプトに束ねて送信先へ一括送信し、成功で clear する。
--- 既定は cwd 一致 agent へ自動解決。opts.force_pick=true で全 pane から選び直す。
--- 流れ: 解決 → format → send({submit}) → queue.clear()。
+-- Bundle the queue into one prompt, flush it to the target, and clear on success.
+-- By default resolves automatically to the cwd-matching agent. opts.force_pick=true re-picks from all panes.
+-- Flow: resolve -> format -> send({submit}) -> queue.clear().
 ---@param opts? { force_pick?: boolean }
 function M.flush(opts)
   opts = opts or {}
   local items = queue.list()
   if #items == 0 then
-    vim.notify("[herdr-send-queue] queue が空です", vim.log.levels.INFO)
+    vim.notify("[herdr-send-queue] queue is empty", vim.log.levels.INFO)
     return
   end
 
@@ -74,24 +74,24 @@ function M.flush(opts)
 
   local function do_send(pane_id, err)
     if not pane_id then
-      vim.notify("[herdr-send-queue] 送信先を解決できません: " .. (err or "不明"), vim.log.levels.ERROR)
+      vim.notify("[herdr-send-queue] could not resolve target: " .. (err or "unknown"), vim.log.levels.ERROR)
       return
     end
     local _, send_err = herdr.send(pane_id, text, { submit = submit })
     if send_err then
-      -- 失敗時はキューを保持する（再送できるように）。
-      vim.notify("[herdr-send-queue] 送信に失敗しました: " .. send_err, vim.log.levels.ERROR)
+      -- Keep the queue on failure (so it can be resent).
+      vim.notify("[herdr-send-queue] send failed: " .. send_err, vim.log.levels.ERROR)
       return
     end
     queue.clear()
-    vim.notify(string.format("[herdr-send-queue] %d 件を %s へ送信しました", #items, pane_id), vim.log.levels.INFO)
+    vim.notify(string.format("[herdr-send-queue] sent %d item(s) to %s", #items, pane_id), vim.log.levels.INFO)
   end
 
   if opts.force_pick then
-    -- 全 pane から明示選択（send preset と共通の picker）
+    -- Explicit pick from all panes (shared picker with the send preset).
     target.pick_pane(do_send)
   else
-    -- 現在バッファの git root から cwd 一致 agent を自動解決（曖昧なら picker）
+    -- Resolve the cwd-matching agent from the current buffer's git root (picker if ambiguous).
     local buf_path = vim.api.nvim_buf_get_name(0)
     local dir = (buf_path ~= nil and buf_path ~= "" and not buf_path:match("^%w+://"))
         and vim.fn.fnamemodify(buf_path, ":h")
@@ -100,52 +100,52 @@ function M.flush(opts)
   end
 end
 
--- keymap を配線する。
+-- Wire up keymaps.
 local function set_keymaps(km)
   if km.comment then
     vim.keymap.set("n", km.comment, function()
       M.comment()
-    end, { silent = true, desc = "herdr-send-queue: 現在行をコメント" })
+    end, { silent = true, desc = "herdr-send-queue: comment current line" })
     vim.keymap.set("x", km.comment, function()
-      -- 先に visual を抜けて '<,'> マークを確定させる（v/V/<C-v> いずれの選択でも範囲が取れる）
+      -- Leave visual mode first so the '<,'> marks are set (works for v/V/<C-v> selections).
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
       M.comment(vim.fn.line("'<"), vim.fn.line("'>"))
-    end, { silent = true, desc = "herdr-send-queue: 選択をコメント" })
+    end, { silent = true, desc = "herdr-send-queue: comment selection" })
   end
   if km.list then
-    vim.keymap.set("n", km.list, M.list, { silent = true, desc = "herdr-send-queue: queue 一覧" })
+    vim.keymap.set("n", km.list, M.list, { silent = true, desc = "herdr-send-queue: queue list" })
   end
   if km.flush then
-    vim.keymap.set("n", km.flush, M.flush, { silent = true, desc = "herdr-send-queue: 一括送信" })
+    vim.keymap.set("n", km.flush, M.flush, { silent = true, desc = "herdr-send-queue: flush" })
   end
   if km.panel then
-    vim.keymap.set("n", km.panel, M.panel, { silent = true, desc = "herdr-send-queue: 一覧パネル" })
+    vim.keymap.set("n", km.panel, M.panel, { silent = true, desc = "herdr-send-queue: list panel" })
   end
   if km.annotate then
-    vim.keymap.set("n", km.annotate, M.annotate, { silent = true, desc = "herdr-send-queue: 行注釈トグル" })
+    vim.keymap.set("n", km.annotate, M.annotate, { silent = true, desc = "herdr-send-queue: toggle line annotations" })
   end
   if km.send_text then
     vim.keymap.set("n", km.send_text, function()
       M.send_text()
-    end, { silent = true, desc = "herdr-send-queue: 現在行を pane へ送信" })
+    end, { silent = true, desc = "herdr-send-queue: send current line to pane" })
     vim.keymap.set("x", km.send_text, function()
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
       M.send_text(vim.fn.line("'<"), vim.fn.line("'>"))
-    end, { silent = true, desc = "herdr-send-queue: 選択を pane へ送信" })
+    end, { silent = true, desc = "herdr-send-queue: send selection to pane" })
   end
 end
 
--- プラグインを有効化する。
+-- Enable the plugin.
 function M.setup(opts)
   local cfg = config.setup(opts)
   float.setup_autocmd()
   panel.setup_autocmd()
-  persist.setup(cfg.persist) -- enabled=true のときだけ load + 自動 save
+  persist.setup(cfg.persist) -- load + auto-save only when enabled=true
   if cfg.set_keymaps then
     set_keymaps(cfg.keymaps)
   end
   if cfg.view.annotate then
-    annotate.enable() -- 行インライン注釈を既定で ON（view.annotate=false で無効化）
+    annotate.enable() -- inline line annotations ON by default (disable with view.annotate=false)
   end
   return M
 end

@@ -1,79 +1,79 @@
--- 設定の既定値を集約するモジュール。他モジュールは config.get() を参照する。
+-- Module that centralizes default settings. Other modules read config.get().
 local M = {}
 
 M.defaults = {
-  -- false にすると setup() は keymap を配線しない（ユーザーが自前で張る）
+  -- Set to false to make setup() skip keymap wiring (user wires their own).
   set_keymaps = true,
   keymaps = {
-    comment = "<leader>ac", -- 現在行/選択 + メモを queue へ
-    list = "<leader>al", -- queue 一覧（view.list の表示先）
-    flush = "<leader>aS", -- 一括送信して clear
-    panel = "<leader>ap", -- 一覧パネルのトグル
-    annotate = "<leader>at", -- 行インライン注釈のトグル
+    comment = "<leader>ac", -- add current line/selection + note to the queue
+    list = "<leader>al", -- queue list (shown via view.list)
+    flush = "<leader>aS", -- flush the queue and clear
+    panel = "<leader>ap", -- toggle the list panel
+    annotate = "<leader>at", -- toggle inline line annotations
   },
   view = {
-    -- list キーマップ/コマンドの表示先。"float"=中央 floating、"panel"=右 split
+    -- Where the list keymap/command shows. "float"=centered floating window, "panel"=right split.
     list = "float",
-    -- setup() 時に行インライン注釈を自動で ON にするか
+    -- Whether to enable inline line annotations automatically on setup().
     annotate = true,
   },
   annotate = {
-    sign_text = "▌", -- signcolumn のマーカ（最大 2 セル）
-    icon = " 💬 ", -- 行末バッジの先頭アイコン
-    line_highlight = true, -- 該当行の背景を強調するか
-    -- ハイライトは HerdrSendQueue{Sign,Icon,Text,Line} を default リンクで定義。
-    -- 色を変えたいときは setup 後に vim.api.nvim_set_hl で上書きする。
+    sign_text = "▌", -- signcolumn marker (max 2 cells)
+    icon = " 💬 ", -- leading icon for the end-of-line badge
+    line_highlight = true, -- whether to highlight the background of the line
+    -- Highlights are defined via HerdrSendQueue{Sign,Icon,Text,Line} as default links.
+    -- To change colors, override them with vim.api.nvim_set_hl after setup.
   },
   herdr = {
-    cmd = "herdr", -- 実行バイナリ名（PATH 上）
+    cmd = "herdr", -- binary name to run (on PATH)
   },
   target = {
-    -- cwd→agent 解決は core/target.lua が git root と agent の cwd を突き合わせる。
-    -- 一致が cwd と foreground_cwd のどちらでも良いか
+    -- cwd->agent resolution is done in core/target.lua by matching the git root against the agent's cwd.
+    -- Whether a match on either cwd or foreground_cwd is acceptable.
     match_foreground_cwd = true,
   },
   review = {
-    -- コメント入力の方式。"float"=複数行フローティング入力、"prompt"=1行の vim.ui.input。
+    -- Comment input method. "float"=multi-line floating input, "prompt"=single-line vim.ui.input.
     input = "float",
   },
   format = {
-    -- ファイル参照形式を決める agent 種別。"claude" は @relpath#L.. 、"plain" は relpath:lnum。
+    -- Agent type that decides the file reference format. "claude" uses @relpath#L.., "plain" uses relpath:lnum.
     agent_type = "claude",
-    header = "以下のレビューコメントに対応してください。",
+    header = "Please address the following review comments.",
   },
   send = {
-    submit = true, -- flush 時に Enter まで送るか（false なら未送信ステージ）
+    submit = true, -- when flushing, also press Enter (false = stage without submitting)
   },
   send_text = {
-    -- 汎用 send preset（:HerdrSendText）で Enter まで送るか。REPL は実行したいので既定 true。
+    -- Whether the generic send preset (:HerdrSendText) also presses Enter. Default true since REPLs want execution.
     submit = true,
-    -- 送信先を記憶して再送するか。既定 false＝毎回 picker を出す（誤爆防止）。
-    -- true にするとセッション内で記憶し、:HerdrSendText! で選び直す運用になる。
+    -- Whether to remember the target and resend to it. Default false = show the picker every time (avoid misfires).
+    -- Set true to remember within the session; use :HerdrSendText! to pick again.
     remember_target = false,
   },
   persist = {
-    -- queue をセッション跨ぎで保存/復元するか（既定 OFF）
+    -- Whether to save/restore the queue across sessions (default OFF).
     enabled = false,
-    -- nil なら stdpath("state")/herdr-send-queue/queue.json
+    -- If nil, uses stdpath("state")/herdr-send-queue/queue.json.
     path = nil,
   },
   read = {
-    -- 返答取り込み（:HerdrRead）の agent read ソース: visible / recent / recent-unwrapped / detection
+    -- agent read source for response capture (:HerdrRead): visible / recent / recent-unwrapped / detection
     source = "recent",
-    -- 読み取る行数（nil なら herdr 既定）
+    -- Number of lines to read (nil = herdr default).
     lines = nil,
   },
 }
 
 local options = nil
 
--- ユーザー opts を既定へ deep merge して保持する。
+-- Deep merge user opts into the defaults and keep the result.
 function M.setup(opts)
   options = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
   return options
 end
 
--- 現在の設定を返す。setup() 前でも既定で動くようにする。
+-- Return the current settings. Works with defaults even before setup().
 function M.get()
   if not options then
     options = vim.deepcopy(M.defaults)

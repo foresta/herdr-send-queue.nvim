@@ -1,6 +1,6 @@
--- queue の永続化（任意）。セッション跨ぎで queue を保存/復元する。
--- 既定 OFF（MVP は非永続）。config.persist.enabled=true で有効化する。
--- 有効時は setup で load し、以後 User HerdrSendQueueChanged のたびに save する。
+-- Queue persistence (optional). Saves/restores the queue across sessions.
+-- Off by default (the MVP is non-persistent). Enable with config.persist.enabled=true.
+-- When enabled, load at setup and save on every User HerdrSendQueueChanged thereafter.
 local queue = require("herdr-send-queue.queue")
 
 local M = {}
@@ -8,10 +8,10 @@ local M = {}
 local state = {
   enabled = false,
   path = nil,
-  suspend = false, -- load 中の save ループ抑止
+  suspend = false, -- suppress the save loop during load
 }
 
--- 保存先パス（nil なら stdpath("state")/herdr-send-queue/queue.json）。
+-- The save path (nil means stdpath("state")/herdr-send-queue/queue.json).
 function M.path()
   return state.path
 end
@@ -20,7 +20,7 @@ local function ensure_dir(p)
   pcall(vim.fn.mkdir, vim.fn.fnamemodify(p, ":h"), "p")
 end
 
--- 現在の queue を JSON で保存する。
+-- Save the current queue as JSON.
 function M.save()
   if not state.enabled or not state.path then
     return
@@ -33,7 +33,7 @@ function M.save()
   pcall(vim.fn.writefile, { json }, state.path)
 end
 
--- 保存ファイルから queue を復元する。
+-- Restore the queue from the saved file.
 function M.load()
   if not state.path or vim.fn.filereadable(state.path) == 0 then
     return
@@ -49,13 +49,13 @@ function M.load()
   state.suspend = true
   queue.clear()
   for _, f in ipairs(data) do
-    -- id はセッション内のみ有効なので捨て、add で採番し直す
+    -- ids are only valid within a session, so drop them and let add renumber
     queue.add({ text = f.text, location = f.location, meta = f.meta })
   end
   state.suspend = false
 end
 
--- 永続化を設定する。enabled=false なら何もしない。
+-- Configure persistence. Does nothing when enabled=false.
 ---@param opts? { enabled?: boolean, path?: string }
 function M.setup(opts)
   opts = opts or {}

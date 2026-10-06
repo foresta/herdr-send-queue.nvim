@@ -1,12 +1,13 @@
--- 複数行テキストを書くための入力用 floating window。
--- queue 一覧（view/float.lua）とは別物で、こちらは「書くための」一時 window。
--- opts.context を渡すと、入力欄の真上に別の小 float でコメント対象コードを表示する
--- （虚行 virt_lines は環境により先頭行上に描画されないため、確実な別 window 方式にする）。
+-- An input floating window for writing multi-line text.
+-- Distinct from the queue list (view/float.lua); this is a transient window "for writing".
+-- When opts.context is given, the target code is shown in a separate small float directly
+-- above the input field (virtual lines above the first line are not rendered in some
+-- environments, so a reliable separate-window approach is used instead).
 local M = {}
 
 local MAX_CONTEXT_LINES = 12
 
--- 対象コードを表示する（編集不可・フォーカス不可）小 float を作る。
+-- Create a small float (read-only, non-focusable) that shows the target code.
 ---@param context { title?: string, lines: string[], filetype?: string }
 ---@param geom { width: integer, height: integer, row: integer, col: integer }
 ---@return integer win, integer buf
@@ -21,15 +22,15 @@ local function open_context(context, geom)
     table.insert(lines, (src[i]:gsub("\t", "  ")))
   end
   if #src > shown then
-    table.insert(lines, "… 他 " .. (#src - shown) .. " 行")
+    table.insert(lines, "… " .. (#src - shown) .. " more lines")
   end
   if #lines == 0 then
-    lines = { "(対象行が空です)" }
+    lines = { "(target lines are empty)" }
   end
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
   if context.filetype and context.filetype ~= "" then
-    vim.bo[buf].filetype = context.filetype -- シンタックスハイライト
+    vim.bo[buf].filetype = context.filetype -- syntax highlighting
   end
 
   local win = vim.api.nvim_open_win(buf, false, {
@@ -41,22 +42,22 @@ local function open_context(context, geom)
     style = "minimal",
     border = "rounded",
     focusable = false,
-    title = " " .. (context.title or "対象") .. " ",
+    title = " " .. (context.title or "target") .. " ",
     title_pos = "center",
   })
   return win, buf
 end
 
--- 入力 float を開く。
+-- Open the input float.
 ---@param opts { title?: string, initial?: string, context?: { title?: string, lines: string[], filetype?: string }, on_submit: fun(text: string), on_cancel?: fun() }
 function M.open(opts)
   opts = opts or {}
-  assert(type(opts.on_submit) == "function", "on_submit は必須です")
+  assert(type(opts.on_submit) == "function", "on_submit is required")
 
   local width = math.min(80, math.floor(vim.o.columns * 0.7))
   local edit_h = math.max(3, math.min(8, math.floor(vim.o.lines * 0.25)))
 
-  -- context の高さ（表示行数、上限 + 省略行）
+  -- Height of the context (number of displayed lines, capped + overflow line)
   local ctx_h = 0
   if opts.context then
     local n = #(opts.context.lines or {})
@@ -64,7 +65,7 @@ function M.open(opts)
     ctx_h = math.max(ctx_h, 1)
   end
 
-  -- 2 枚（context + 入力）を縦に積んで全体を中央寄せ。border は各 window の上下 1 行ずつ。
+  -- Stack the two (context + input) vertically and center the whole thing. The border takes one row above and below each window.
   local col = math.floor((vim.o.columns - width) / 2)
   local total = edit_h + 2 + (opts.context and (ctx_h + 2) or 0)
   local top = math.max(1, math.floor((vim.o.lines - total) / 2))
@@ -74,14 +75,14 @@ function M.open(opts)
   if opts.context then
     local ctx_row = top
     ctx_win = open_context(opts.context, { width = width, height = ctx_h, row = ctx_row, col = col })
-    input_row = ctx_row + ctx_h + 2 -- context の下 border + 入力の上 border
+    input_row = ctx_row + ctx_h + 2 -- context's bottom border + input's top border
   else
     input_row = top
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = "wipe"
-  vim.bo[buf].filetype = "markdown" -- コメントは markdown 想定
+  vim.bo[buf].filetype = "markdown" -- comments are assumed to be markdown
   if opts.initial and opts.initial ~= "" then
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(opts.initial, "\n", { plain = true }))
   end
@@ -94,9 +95,9 @@ function M.open(opts)
     col = col,
     style = "minimal",
     border = "rounded",
-    title = " " .. (opts.title or "コメント") .. " ",
+    title = " " .. (opts.title or "comment") .. " ",
     title_pos = "center",
-    footer = " <C-s> 送信   q/<C-c> 取消 ",
+    footer = " <C-s> send   q/<C-c> cancel ",
     footer_pos = "center",
   })
 
@@ -109,7 +110,7 @@ function M.open(opts)
     if vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
     end
-    -- 入力は startinsert で開くので、終了時は normal へ戻す（呼び出し元のモードに合わせる）
+    -- The input opens with startinsert, so return to normal mode on close (match the caller's mode)
     if vim.fn.mode() ~= "n" then
       vim.cmd("stopinsert")
     end
@@ -126,7 +127,7 @@ function M.open(opts)
     if text ~= "" then
       opts.on_submit(text)
     elseif opts.on_cancel then
-      opts.on_cancel() -- 空は取消扱い
+      opts.on_cancel() -- empty is treated as cancel
     end
   end
 
@@ -144,12 +145,12 @@ function M.open(opts)
   local function map(modes, lhs, fn)
     vim.keymap.set(modes, lhs, fn, { buffer = buf, nowait = true, silent = true })
   end
-  -- <CR> は改行に使うので、送信は <C-s>（normal/insert 両方）に割り当てる
+  -- <CR> is used for newlines, so submit is mapped to <C-s> (both normal and insert)
   map({ "n", "i" }, "<C-s>", submit)
   map("n", "q", cancel)
   map({ "n", "i" }, "<C-c>", cancel)
 
-  -- window を手動で閉じた場合も取消として扱う
+  -- Also treat a manually closed window as a cancel
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = tostring(win),
     once = true,

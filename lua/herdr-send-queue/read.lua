@@ -1,12 +1,12 @@
--- 返答取り込み。送信先 agent/pane の画面テキストを読み取り、nvim の read-only float で表示する。
--- 構造化レスポンスは無く画面スクレイプ（agent read --format text）になる。
+-- Response capture. Reads the target agent/pane's screen text and shows it in a read-only float in nvim.
+-- There is no structured response, so this is a screen scrape (agent read --format text).
 local herdr = require("herdr-send-queue.core.herdr")
 local target = require("herdr-send-queue.core.target")
 local config = require("herdr-send-queue.config")
 
 local M = {}
 
--- 取り込んだテキストを read-only の floating window で表示する。
+-- Show the captured text in a read-only floating window.
 local function show(text, title)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = "wipe"
@@ -26,7 +26,7 @@ local function show(text, title)
     border = "rounded",
     title = " " .. (title or "agent response") .. " ",
     title_pos = "center",
-    footer = " q/<Esc> 閉じる ",
+    footer = " q/<Esc> close ",
     footer_pos = "center",
   })
   vim.wo[win].wrap = false
@@ -40,8 +40,8 @@ local function show(text, title)
   return win
 end
 
--- 送信先の画面テキストを読み取って表示する。
--- 既定は cwd 一致 agent。opts.force_pick=true で全 pane から選ぶ。
+-- Read and display the target's screen text.
+-- Defaults to the cwd-matching agent. With opts.force_pick=true, pick from all panes.
 ---@param opts? { force_pick?: boolean }
 function M.read_response(opts)
   opts = opts or {}
@@ -49,16 +49,16 @@ function M.read_response(opts)
 
   local function do_read(pane_id, err)
     if not pane_id then
-      vim.notify("[herdr-send-queue] 送信先を解決できません: " .. (err or "不明"), vim.log.levels.ERROR)
+      vim.notify("[herdr-send-queue] cannot resolve target: " .. (err or "unknown"), vim.log.levels.ERROR)
       return
     end
     local text, rerr = herdr.read(pane_id, { source = rcfg.source, lines = rcfg.lines })
     if not text then
-      vim.notify("[herdr-send-queue] 読み取りに失敗しました: " .. (rerr or "不明"), vim.log.levels.ERROR)
+      vim.notify("[herdr-send-queue] read failed: " .. (rerr or "unknown"), vim.log.levels.ERROR)
       return
     end
     if vim.trim(text) == "" then
-      vim.notify("[herdr-send-queue] 返答が空でした", vim.log.levels.INFO)
+      vim.notify("[herdr-send-queue] response was empty", vim.log.levels.INFO)
       return
     end
     show(text, pane_id)

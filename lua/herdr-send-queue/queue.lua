@@ -1,19 +1,19 @@
--- 汎用ステージング。id つき fragment の順序つき配列を in-memory で保持するだけ。
--- agent にもコメントにも依存しない（レビュー以外の preset も同じ土台に載せられる）。
+-- Generic staging. Just keeps an ordered array of id'd fragments in memory.
+-- Depends on neither the agent nor comments (presets other than review can build on the same base).
 --
 ---@class Location
----@field path     string   -- 絶対パス
----@field relpath  string   -- repo 相対（@path#L.. 用）
----@field lnum     integer  -- 1-based 開始行
----@field end_lnum integer  -- 終了行（含む）
+---@field path     string   -- absolute path
+---@field relpath  string   -- repo-relative (for @path#L..)
+---@field lnum     integer  -- 1-based start line
+---@field end_lnum integer  -- end line (inclusive)
 ---@field branch?  string
 ---@field rev?     string   -- short sha
 --
 ---@class Fragment
----@field id       string    -- 安定 id（編集/削除用）
----@field text     string    -- ユーザーが書いた中身（メモ/コード）
+---@field id       string    -- stable id (for editing/removal)
+---@field text     string    -- content the user wrote (note/code)
 ---@field location? Location
----@field meta?    table     -- 自由（kind="review" 等）
+---@field meta?    table     -- free-form (e.g. kind="review")
 
 local M = {}
 
@@ -21,12 +21,12 @@ local M = {}
 local items = {}
 local seq = 0
 
--- 変更を view へ知らせる。view は queue.list() を読むだけで再描画できる（疎結合）。
+-- Notify the view of a change. The view can redraw by reading queue.list() alone (loosely coupled).
 local function notify()
   vim.api.nvim_exec_autocmds("User", { pattern = "HerdrSendQueueChanged" })
 end
 
--- fragment を末尾に積む。id を採番して返す。
+-- Append a fragment. Assigns an id and returns it.
 ---@param fragment Fragment
 ---@return string id
 function M.add(fragment)
@@ -37,13 +37,13 @@ function M.add(fragment)
   return fragment.id
 end
 
--- 現在のキュー（コピー）を順序どおり返す。
+-- Return the current queue (a copy) in order.
 ---@return Fragment[]
 function M.list()
   return vim.deepcopy(items)
 end
 
--- id で 1 件取得する。
+-- Get one item by id.
 ---@param id string
 ---@return Fragment?
 function M.get(id)
@@ -55,7 +55,7 @@ function M.get(id)
   return nil
 end
 
--- id で 1 件削除する。消したら true。
+-- Remove one item by id. Returns true if removed.
 ---@param id string
 ---@return boolean removed
 function M.remove(id)
@@ -69,7 +69,7 @@ function M.remove(id)
   return false
 end
 
--- 全消去。
+-- Clear everything.
 function M.clear()
   if #items == 0 then
     return
@@ -78,7 +78,7 @@ function M.clear()
   notify()
 end
 
--- 件数。
+-- Count.
 ---@return integer
 function M.count()
   return #items

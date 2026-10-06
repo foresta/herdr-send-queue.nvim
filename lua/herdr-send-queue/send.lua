@@ -1,18 +1,18 @@
--- 汎用 send preset。選択/現在行を「任意の pane」（shell / REPL / 別 agent 等）へ送る。
--- 汎用コア（core/herdr）をそのまま流用し、レビュー用の format/location には依存しない。
--- 送信先は herdr pane list から picker で選び、セッション内で記憶して再送を楽にする。
+-- Generic send preset. Sends the selection/current line to "any pane" (shell / REPL / another agent, etc.).
+-- It reuses the generic core (core/herdr) as-is and does not depend on the review format/location.
+-- The target is chosen from herdr pane list via a picker and remembered within the session to make resending easy.
 local herdr = require("herdr-send-queue.core.herdr")
 local target = require("herdr-send-queue.core.target")
 local config = require("herdr-send-queue.config")
 
 local M = {}
 
--- セッション内で記憶する直近の送信先 pane_id
+-- The most recent target pane_id, remembered within the session.
 local last_target = nil
 
--- 送信先を解決する。
--- remember_target=true かつ force_pick=false で記憶があればそれを再利用、
--- それ以外（remember_target=false / force_pick / 記憶なし）は picker を出す。
+-- Resolve the target.
+-- When remember_target=true and force_pick=false and a target is remembered, reuse it;
+-- otherwise (remember_target=false / force_pick / nothing remembered) show the picker.
 ---@param force_pick boolean
 ---@param cb fun(pane_id: string|nil, err: string|nil)
 local function resolve(force_pick, cb)
@@ -28,7 +28,7 @@ local function resolve(force_pick, cb)
   end)
 end
 
--- 行範囲のテキストを送信先 pane へ送る。
+-- Send the text of a line range to the target pane.
 ---@param line1 integer
 ---@param line2 integer
 ---@param opts? { submit?: boolean, force_pick?: boolean }
@@ -37,7 +37,7 @@ function M.send_lines(line1, line2, opts)
   local lines = vim.api.nvim_buf_get_lines(0, line1 - 1, line2, false)
   local text = table.concat(lines, "\n")
   if vim.trim(text) == "" then
-    vim.notify("[herdr-send-queue] 送信するテキストがありません", vim.log.levels.WARN)
+    vim.notify("[herdr-send-queue] no text to send", vim.log.levels.WARN)
     return
   end
 
@@ -48,24 +48,24 @@ function M.send_lines(line1, line2, opts)
 
   resolve(opts.force_pick and true or false, function(pid, err)
     if not pid then
-      vim.notify("[herdr-send-queue] 送信先を解決できません: " .. (err or "不明"), vim.log.levels.ERROR)
+      vim.notify("[herdr-send-queue] cannot resolve target: " .. (err or "unknown"), vim.log.levels.ERROR)
       return
     end
     local _, serr = herdr.send(pid, text, { submit = submit })
     if serr then
-      vim.notify("[herdr-send-queue] 送信に失敗しました: " .. serr, vim.log.levels.ERROR)
+      vim.notify("[herdr-send-queue] send failed: " .. serr, vim.log.levels.ERROR)
       return
     end
-    vim.notify(string.format("[herdr-send-queue] %d 行を %s へ送信しました", line2 - line1 + 1, pid), vim.log.levels.INFO)
+    vim.notify(string.format("[herdr-send-queue] sent %d line(s) to %s", line2 - line1 + 1, pid), vim.log.levels.INFO)
   end)
 end
 
--- 記憶している送信先を忘れる（次回 picker を出す）。
+-- Forget the remembered target (the next call shows the picker).
 function M.clear_target()
   last_target = nil
 end
 
--- 記憶中の送信先。
+-- The currently remembered target.
 function M.target()
   return last_target
 end

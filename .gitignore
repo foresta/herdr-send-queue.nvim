@@ -11,11 +11,11 @@ doc/tags
 *.luac
 luac.out
 
-# 環境・ローカル
+# Environment / local
 .env
 .direnv/
 .luarc.json
 
-# テスト/依存の生成物
+# Test / dependency artifacts
 /deps/
 .tests/

@@ -1,11 +1,11 @@
--- queue（kind="review"）→ agent へ送る 1 プロンプト文字列へ整形する。
+-- Format the queue (kind="review") into one prompt string to send to the agent.
 local config = require("herdr-send-queue.config")
 
 local M = {}
 
--- location → ファイル参照文字列。agent 種別で形式が違う。
--- claude: @relpath#Lx（範囲は #Lx-Ly）。絶対パスでなく @ 付き相対にして slash-command 誤爆を避ける。
--- plain:  relpath:x（範囲は relpath:x-y）。prefix 無しの CLI 向け。
+-- location -> file reference string. The format differs by agent type.
+-- claude: @relpath#Lx (ranges use #Lx-Ly). Use an @-prefixed relative path instead of an absolute one to avoid the agent mis-parsing it as a slash-command.
+-- plain:  relpath:x (ranges use relpath:x-y). For CLIs without a prefix.
 ---@param loc Location
 ---@param agent_type string
 local function reference(loc, agent_type)
@@ -16,14 +16,14 @@ local function reference(loc, agent_type)
     end
     return string.format("%s:%d", loc.relpath, loc.lnum)
   end
-  -- 既定（claude）
+  -- Default (claude)
   if has_range then
     return string.format("@%s#L%d-L%d", loc.relpath, loc.lnum, loc.end_lnum)
   end
   return string.format("@%s#L%d", loc.relpath, loc.lnum)
 end
 
--- fragment 配列を 1 プロンプトへ整形する。
+-- Format an array of fragments into one prompt.
 ---@param list Fragment[]
 ---@param opts? { agent_type?: string, header?: string }
 ---@return string
